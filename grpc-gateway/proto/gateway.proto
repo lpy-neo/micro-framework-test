@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+import "comm_proto/grpc.proto";
+
+option go_package = "github.com/lpy-neo/micro-framework-test/grpc-gateway/grpc_gateway";
+
+package grpc_gateway;
+
+service GrpcService {
+  rpc GrpcReq (comm_proto.GrpcRequest) returns (comm_proto.GrpcReply) {}
+}
+

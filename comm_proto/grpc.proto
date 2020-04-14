@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package comm_proto;
+option go_package = "github.com/lpy-neo/micro-framework-test/comm_proto";
+
+message GrpcRequest {
+	GrpcRequestHead head = 1;
+	bytes body = 2;
+}
+
+message GrpcRequestHead {
+	int32 cmd = 2;
+	string uid = 1;
+	int32 encoding = 3;
+}
+
+message GrpcReply {
+	int32 cmd = 2;
+  	bytes data = 1;
+}
