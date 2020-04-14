@@ -30,7 +30,10 @@ const (
 func main() {
 	grpcReq()
 	restReq()
-	wsReq()
+	time.Sleep(time.Second)
+	go wsReq()
+	go grpcStream()
+	select {}
 }
 
 func grpcReq() {
@@ -48,7 +51,7 @@ func grpcReq() {
 	defer cancel()
 
 	var req hellopb.HelloRequest
-	req.Name = "lipengyong"
+	req.Name = "grpc req"
 	bytes, _ := proto.Marshal(&req)
 
 	r, err := c.GrpcReq(ctx, &commpb.GrpcRequest{Head: &commpb.GrpcRequestHead{Cmd: 1000, Uid: "uid123"}, Body: bytes})
@@ -63,7 +66,7 @@ func grpcReq() {
 
 func restReq() {
 	var req hellopb.HelloRequest
-	req.Name = "lipengyong"
+	req.Name = "rest req"
 	bytes1, _ := json.Marshal(&req)
 
 	commReq := &commpb.GrpcRequest{Head: &commpb.GrpcRequestHead{Cmd: 1000, Uid: "uid123", Encoding: 2}, Body: bytes1}
@@ -122,7 +125,7 @@ func wsReq() {
 	defer ticker.Stop()
 
 	var req hellopb.HelloRequest
-	req.Name = "lipengyong"
+	req.Name = "ws req"
 	bytes1, _ := json.Marshal(&req)
 
 	commReq := &commpb.GrpcRequest{Head: &commpb.GrpcRequestHead{Cmd: 1000, Uid: "uid123", Encoding: 2}, Body: bytes1}
@@ -137,4 +140,49 @@ func wsReq() {
 			}
 		}
 	}
+}
+
+func grpcStream() {
+	creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
+	conn, err := grpc.Dial(address, grpc.WithTransportCredentials(creds))
+	// Set up a connection to the server.
+	// conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+	c := pb.NewGrpcServiceClient(conn)
+
+	streamClient, err := c.GrpcStream(context.TODO())
+	if err != nil {
+		log.Fatalf("could not send grpc req: %v", err)
+	}
+
+	go func() {
+		for {
+			r, err := streamClient.Recv()
+			if err != nil {
+				fmt.Println("err:", err)
+			}
+			var rsp hellopb.HelloReply
+			proto.Unmarshal(r.Data, &rsp)
+			log.Printf("Greeting: %v", rsp.Message)
+
+		}
+	}()
+
+	var req hellopb.HelloRequest
+	req.Name = "grpc stream req"
+	bytes, _ := proto.Marshal(&req)
+	commReq := commpb.GrpcRequest{Head: &commpb.GrpcRequestHead{Cmd: 1000, Uid: "uid123"}, Body: bytes}
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			streamClient.Send(&commReq)
+
+		}
+	}
+	select {}
 }

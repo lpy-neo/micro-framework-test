@@ -25,9 +25,28 @@ const (
 type server struct {
 }
 
-// SayHello implements helloworld.GreeterServer
 func (s *server) GrpcReq(ctx context.Context, in *commpb.GrpcRequest) (*commpb.GrpcReply, error) {
 	return processGrpcReq(ctx, in)
+}
+
+func (s *server) GrpcStream(stream pb.GrpcService_GrpcStreamServer) error {
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		rsp, err := processGrpcReq(context.Background(), req)
+		if err != nil {
+			return err
+		}
+		err = stream.Send(rsp)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func processGrpcReq(ctx context.Context, in *commpb.GrpcRequest) (*commpb.GrpcReply, error) {

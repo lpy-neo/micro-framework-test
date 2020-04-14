@@ -8,5 +8,6 @@ package grpc_gateway;
 
 service GrpcService {
   rpc GrpcReq (comm_proto.GrpcRequest) returns (comm_proto.GrpcReply) {}
+  rpc GrpcStream (stream comm_proto.GrpcRequest) returns (stream comm_proto.GrpcReply) {}
 }
 
