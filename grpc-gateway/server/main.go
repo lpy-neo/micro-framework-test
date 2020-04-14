@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/lpy-neo/micro-framework-test/comm_proto"
 	commpb "github.com/lpy-neo/micro-framework-test/comm_proto"
 	pb "github.com/lpy-neo/micro-framework-test/grpc-gateway/proto"
@@ -77,27 +78,64 @@ func grpcSvr() {
 }
 
 func restSvr() {
-	http.HandleFunc("/grpc_gateway.RestService", func(w http.ResponseWriter, r *http.Request) {
-		defer r.Body.Close()
-		body, err := ioutil.ReadAll(r.Body)
-		log.Printf("%s", string(body))
+	http.HandleFunc("/grpc_gateway.RestService", httpHandler)
+	http.HandleFunc("/grpc_gateway.WsService", wsHandler)
+	http.ListenAndServe(":50050", nil)
+}
+
+func httpHandler(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	body, err := ioutil.ReadAll(r.Body)
+	log.Printf("%s", string(body))
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+	var req commpb.GrpcRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+
+	rsp, err := processGrpcReq(context.Background(), &req)
+	bytes, err := json.Marshal(rsp)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+	_, err = w.Write(bytes)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
+}
+
+var upgrader = websocket.Upgrader{} // use default options
+func wsHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+	defer c.Close()
+	for {
+		mt, message, err := c.ReadMessage()
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			log.Println("read:", err)
+			break
 		}
+		log.Printf("recv: %s", message)
+
 		var req commpb.GrpcRequest
-		if err := json.Unmarshal(body, &req); err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		if err := json.Unmarshal(message, &req); err != nil {
+			break
 		}
 
 		rsp, err := processGrpcReq(context.Background(), &req)
 		bytes, err := json.Marshal(rsp)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			break
 		}
-		_, err = w.Write(bytes)
+		err = c.WriteMessage(mt, bytes)
 		if err != nil {
-			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			break
 		}
-	})
-	http.ListenAndServe(":50050", nil)
+	}
+	log.Println("ws break")
 }

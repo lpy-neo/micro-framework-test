@@ -10,9 +10,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/gorilla/websocket"
 	commpb "github.com/lpy-neo/micro-framework-test/comm_proto"
 	pb "github.com/lpy-neo/micro-framework-test/grpc-gateway/proto"
 	hellopb "github.com/lpy-neo/micro-framework-test/helloworld/proto"
@@ -28,6 +30,7 @@ const (
 func main() {
 	grpcReq()
 	restReq()
+	wsReq()
 }
 
 func grpcReq() {
@@ -89,4 +92,49 @@ func restReq() {
 	var helloRsp hellopb.HelloReply
 	json.Unmarshal(rsp.Data, &helloRsp)
 	log.Printf("Greeting: %v", helloRsp.Message)
+}
+
+func wsReq() {
+	u := url.URL{Scheme: "ws", Host: "localhost:9877", Path: "/grpc_gateway.WsService"}
+
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+	defer c.Close()
+
+	go func() {
+		for {
+			_, message, err := c.ReadMessage()
+			if err != nil {
+				log.Println("read:", err)
+				return
+			}
+			var rsp commpb.GrpcReply
+			json.Unmarshal(message, &rsp)
+			var helloRsp hellopb.HelloReply
+			json.Unmarshal(rsp.Data, &helloRsp)
+			log.Printf("Greeting: %v", helloRsp.Message)
+		}
+	}()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	var req hellopb.HelloRequest
+	req.Name = "lipengyong"
+	bytes1, _ := json.Marshal(&req)
+
+	commReq := &commpb.GrpcRequest{Head: &commpb.GrpcRequestHead{Cmd: 1000, Uid: "uid123", Encoding: 2}, Body: bytes1}
+	commbytes, _ := json.Marshal(commReq)
+	for {
+		select {
+		case <-ticker.C:
+			err := c.WriteMessage(websocket.TextMessage, commbytes)
+			if err != nil {
+				log.Println("write:", err)
+				return
+			}
+		}
+	}
 }
