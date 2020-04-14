@@ -65,7 +65,7 @@ func (s *server) GrpcReq(ctx context.Context, in *commpb.GrpcRequest) (*commpb.G
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
 	log.Printf("Received: %v", *in)
 
-	return &pb.HelloReply{Message: in.Name}, nil
+	return &pb.HelloReply{Message: fmt.Sprintf("%s-%d", in.Name, in.Age)}, nil
 }
 
 func main() {
