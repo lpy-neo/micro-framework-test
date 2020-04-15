@@ -19,3 +19,20 @@ gzip
 graceful shutdown/restart
 apm(Application Performance Management)
 SkyWalking
+[ // from dubbo: https://dubbo.apache.org/zh-cn/docs/user/demos/preflight-check.html
+concurrency/connections control
+failover/failback
+service dependence checking
+distributed context
+no resp
+async handling
+local call
+oninvoke、onreturn、onthrow
+local stub: do extra local work
+local mock: service downgrade
+invoke token
+service container
+distribute transaction
+auto dump (when running in some abnormal situation)
+define service though IDL (protobuf)
+]
